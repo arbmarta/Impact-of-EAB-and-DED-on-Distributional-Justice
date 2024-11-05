@@ -1,0 +1,157 @@
+import pandas as pd
+import numpy as np
+import geopandas as gpd
+import libpysal as ps
+from esda import Moran
+import matplotlib.pyplot as plt
+from spreg import OLS, GM_Error_Het, GM_Error, GM_Lag
+
+# Load and Rename Dataset Columns
+df_shp = gpd.read_file(r"C:\Users\alexj\Documents\MSc Research\MSc Manuscripts\Drivers of Inequality\Multivariate Regression\Data\Dissemination Area Shapefile.shp")
+df_shp.rename(columns={
+    'lda_000b21': 'DGUID', 'lda_000b_1': 'Land Area', 'lda_000b_2': 'PRUID', 'lda_000b_3': 'City',
+    'lda_000b_4': 'DAUID_num', 'da_data_cs': 'DAUID', 'da_data__1': 'City_x', 'da_data__2': 'Population Density',
+    'da_data__3': 'Residential Instability', 'da_data__4': 'Economic Dependency', 'da_data__5': 'Ethno-Cultural Composition',
+    'da_data__6': 'Situational Vulnerability', 'da_data__7': 'Tree Density', 'da_data__8': 'Basal Area',
+    'da_data__9': 'Simulation: DED Sus Tree Density', 'da_data_10': 'Simulation: DED Sus Basal Area',
+    'da_data_11': 'Simulation: DED Tree Density', 'da_data_12': 'Simulation: DED Basal Area', 'da_data_13': 'Simulation: EAB Tree Density',
+    'da_data_14': 'Simulation: EAB Basal Area', 'da_data_15': 'Ash Tree Proportion', 'da_data_16': 'Ash Basal Area',
+    'da_data_17': 'Ash Basal Area Proportion', 'da_data_18': 'Elm Tree Proportion', 'da_data_19': 'Elm Basal Area',
+    'da_data_20': 'Elm Basal Area Proportion', 'da_data_21': 'DED Elm Tree Proportion', 'da_data_22': 'DED Elm Basal Area',
+    'da_data_23': 'DED Elm Basal Area Proportion', 'geometry': 'geometry'
+}, inplace=True)
+
+# Define Variables
+Cities = ['Winnipeg', 'Regina', 'Lethbridge', 'Edmonton', 'Calgary']
+
+Dependent_variables_monocultures = ['Ash Tree Proportion', 'Ash Basal Area Proportion', 'Ash Basal Area',
+       'Elm Tree Proportion', 'Elm Basal Area Proportion', 'Elm Basal Area', 'DED Elm Tree Proportion',
+       'DED Elm Basal Area Proportion', 'DED Elm Basal Area']
+
+Dependent_variables_change = ['Tree Density', 'Basal Area', 'Simulation: DED Sus Tree Density',
+        'Simulation: DED Sus Basal Area', 'Simulation: DED Tree Density', 'Simulation: DED Basal Area',
+        'Simulation: EAB Tree Density', 'Simulation: EAB Basal Area']
+
+Independent_variables = ['Population Density', 'Residential Instability', 'Economic Dependency',
+                         'Ethno-Cultural Composition', 'Situational Vulnerability']
+
+# ------------------------- FUNCTIONS -------------------------
+
+def calculate_moran_i(df, cities, dependent_vars):
+    """Calculate Moran's I for each dependent variable in each city."""
+    results = []
+    for city in cities:
+        df_city = df[df['City'] == city]
+        w_city = ps.weights.Queen.from_dataframe(df_city, use_index=False)
+        w_city.transform = 'r'
+        for var in dependent_vars:
+            if df_city[var].isnull().any():
+                print(f"Missing values in {var} for {city}. Skipping Moran's I calculation.")
+                continue
+            moran = Moran(df_city[var].values, w_city)
+            results.append({'City': city, 'Variable': var, 'Moran_I': moran.I, 'p_value': moran.p_sim, 'z_score': moran.z_sim})
+    return pd.DataFrame(results)
+
+def run_ols_with_lm_diagnostics(y, X, w, var):
+    """Run OLS with LM diagnostics to determine best spatial model."""
+    ols_model = OLS(y, X, w=w, spat_diag=True, moran=True, name_y=var, name_x=Independent_variables, white_test=True)
+    lm_results = {
+        'LM-Error': ols_model.lm_error, 'LM-Lag': ols_model.lm_lag,
+        'Robust LM-Error': ols_model.rlm_error, 'Robust LM-Lag': ols_model.rlm_lag,
+        'White': ols_model.white
+    }
+
+    # Print diagnostics with rounded p-values
+    for test_name, result in lm_results.items():
+        if isinstance(result, tuple) and len(result) == 2:  # Check if it's a (stat, pvalue) pair
+            stat, pvalue = result
+            stat_str = f"{stat:.3f}" if isinstance(stat, (int, float)) else "N/A"
+            pvalue_str = f"{pvalue:.3f}" if isinstance(pvalue, (int, float)) else "N/A"
+            print(f"{test_name}: statistic = {stat_str}, p-value = {pvalue_str}")
+        elif isinstance(result, dict):  # Handle the case where 'result' is a dict (e.g., White test)
+            stat = result.get('wh', None)
+            pvalue = result.get('pvalue', None)
+            stat_str = f"{stat:.3f}" if isinstance(stat, (int, float)) else "N/A"
+            pvalue_str = f"{pvalue:.3f}" if isinstance(pvalue, (int, float)) else "N/A"
+            print(f"{test_name}: statistic = {stat_str}, p-value = {pvalue_str}")
+        else:
+            print(f"{test_name}: {result}")
+
+    # Determine model selection based on LM diagnostics
+    lm_error, lm_lag = ols_model.lm_error[1], ols_model.lm_lag[1]
+    rlm_error, rlm_lag = ols_model.rlm_error[1], ols_model.rlm_lag[1]
+    white_pvalue = ols_model.white['pvalue']
+
+    if lm_error >= 0.05 and lm_lag >= 0.05:
+        return "OLS", ols_model
+    elif lm_error < 0.05 and lm_lag >= 0.05:
+        return ("SEM_Het" if white_pvalue < 0.05 else "SEM", "Run SEM")
+    elif lm_lag < 0.05 and lm_error >= 0.05:
+        return "SLM", "Run SLM"
+    else:
+        return ("SEM_Het" if rlm_error < rlm_lag and white_pvalue < 0.05 else "SEM", "Run SEM") if rlm_error < rlm_lag else ("SLM", "Run SLM")
+
+def run_selected_model(y, X, w, model_type, var):
+    """Run the specified spatial model based on diagnostics and return model with coefficients."""
+    model = {
+        "OLS": OLS(y, X, w=w, spat_diag=True, moran=True, name_y=var, name_x=Independent_variables),
+        "SEM": GM_Error(y, X, w=w, name_y=var, name_x=Independent_variables),
+        "SEM_Het": GM_Error_Het(y, X, w=w, name_y=var, name_x=Independent_variables),
+        "SLM": GM_Lag(y, X, w=w, name_y=var, name_x=Independent_variables)
+    }.get(model_type, None)
+
+    if model is not None and hasattr(model, 'betas'):
+        coefficients = model.betas.flatten()  # Flattening to get all coefficients in an array
+    else:
+        coefficients = [None] * (len(Independent_variables) + 1)  # Include intercept in count if model not available
+    return model, coefficients
+
+# ------------------------- MAIN PROCESSING -------------------------
+
+# Run Moran's I for both monocultures and change variables
+moran_df_monocultures = calculate_moran_i(df_shp, Cities, Dependent_variables_monocultures)
+moran_df_future_change = calculate_moran_i(df_shp, Cities, Dependent_variables_change)
+
+# Initialize results
+model_counts = {model: 0 for model in ["OLS", "SEM", "SEM_Het", "SLM"]}
+model_results = []
+
+# Process each city and each dependent variable list
+for city in Cities:
+    df_city = df_shp[df_shp['City'] == city]
+    w_city = ps.weights.Queen.from_dataframe(df_city, use_index=False)
+    w_city.transform = 'r'
+
+    for var_group in [Dependent_variables_monocultures, Dependent_variables_change]:
+        for var in var_group:
+            if df_city[var].isnull().any():
+                print(f"Missing values in {var} for {city}. Skipping model.")
+                continue
+
+            y = np.array(df_city[var]).reshape(-1, 1)
+            X = np.array(df_city[Independent_variables])
+
+            # Run diagnostics and select model type
+            model_type, _ = run_ols_with_lm_diagnostics(y, X, w_city, var)
+            model_counts[model_type] += 1
+
+            # Run the selected model and get coefficients
+            final_model, coefficients = run_selected_model(y, X, w_city, model_type, var)
+
+            # Store results with coefficients for each independent variable
+            model_results.append({
+                'City': city, 'Variable': var, 'Model Type': model_type,
+                'Intercept': coefficients[0] if len(coefficients) > 0 else None,
+                **{Independent_variables[i]: coefficients[i+1] if len(coefficients) > i+1 else None for i in range(len(Independent_variables))}
+            })
+
+# ------------------------- OUTPUT RESULTS -------------------------
+
+# Convert model results to DataFrame and display
+results_df = pd.DataFrame(model_results)
+print(results_df)
+
+# Save results to CSV if data exists
+if not results_df.empty:
+    results_df.to_csv("model_results_with_coefficients.csv", index=False)
+    print("Results saved to 'model_results_with_coefficients.csv'.")
