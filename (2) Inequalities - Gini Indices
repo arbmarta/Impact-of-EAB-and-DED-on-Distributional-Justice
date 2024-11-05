@@ -101,6 +101,38 @@ print(df)
 print(df.columns)
 print(len(df))
 
+## ------------------------------------------- CREATE PROPORTIONATE COLUMNAFRAME -------------------------------------------
+# Create proportionate column
+tree_variables = ['Tree Count Per Capita', 'Basal Area Sum Per Capita', 'DED Sus Tree Count Per Capita',
+    'DED Sus Basal Area Per Capita', 'DED Tree Count Per Capita', 'DED Basal Area Per Capita',
+    'EAB Tree Count Per Capita', 'EAB Basal Area Per Capita']
+
+tree_variable_proportions = ['Tree Count Proportion', 'Basal Area Sum Proportion', 'DED Sus Tree Count Proportion',
+    'DED Sus Basal Area Proportion', 'DED Tree Count Proportion', 'DED Basal Area Proportion',
+    'EAB Tree Count Proportion', 'EAB Basal Area Proportion']
+
+# Calculate proportions for each tree variable
+for variable in tree_variables:
+    # Calculate the total for each city for the given variable
+    city_totals = df.groupby('City')[variable].transform('sum')
+
+    # Calculate the proportion for each entry
+    proportion_column = variable.replace('Per Capita', 'Proportion')
+    df[proportion_column] = df[variable] / city_totals
+
+# Display the updated DataFrame
+print("DataFrame with Tree Variable Proportions:")
+print(df.columns)
+
+# Calculate the total sum of each tree variable proportion for each city
+city_proportion_sums = df.groupby('City')[tree_variable_proportions].sum().reset_index()
+
+# Display the resulting DataFrame with summed proportions for each city
+pd.set_option('display.max_columns', None)
+print("Sum of Tree Variable Proportions for Each City:")
+print(city_proportion_sums)
+pd.reset_option('display.max_columns')
+
 ## ----------------------------------------- CREATE BOXPLOTS OF CT LAND AREA -----------------------------------------
 plt.figure(figsize=(10, 6))
 final_df.boxplot(column='Land Area (km)', by='City')
@@ -143,14 +175,6 @@ plt.show()
 # List of cities
 cities = ["Calgary", "Edmonton", "Lethbridge", "Regina", "Winnipeg"]
 
-# List of tree variable proportions
-tree_variables = [
-    'Tree Count Proportion', 'Basal Area Sum Proportion',
-    'DED Sus Tree Count Proportion', 'DED Sus Basal Area Proportion',
-    'DED Tree Count Proportion', 'DED Basal Area Proportion',
-    'EAB Tree Count Proportion', 'EAB Basal Area Proportion'
-]
-
 # Assuming final_df contains your data
 sorted_results = {}  # Dictionary to store sorted DataFrames for each city and tree variable
 gini_results = {}
@@ -163,13 +187,13 @@ for city in cities:
     # Get the total population for the current city
     total_city_population = city_population[city]
 
-    for tree_variable in tree_variables:
+    for tree_variable_proportions in tree_variable_proportions:
         # Sort city_df by the current tree_variable in ascending order
-        sorted_city_df = city_df.sort_values(by=tree_variable, ascending=True).reset_index(drop=True)
+        sorted_city_df = city_df.sort_values(by=tree_variable_proportions, ascending=True).reset_index(drop=True)
 
         # Calculate the cumulative proportion column with a cap at 1
-        cumulative_column = f"{tree_variable} Cumulative Proportion"
-        sorted_city_df[cumulative_column] = np.minimum(sorted_city_df[tree_variable].cumsum(), 1)
+        cumulative_column = f"{tree_variable_proportions} Cumulative Proportion"
+        sorted_city_df[cumulative_column] = np.minimum(sorted_city_df[tree_variable_proportions].cumsum(), 1)
 
         # Calculate the population proportion based on city population
         sorted_city_df['Population Proportion'] = 1 / total_city_population
@@ -178,11 +202,11 @@ for city in cities:
         sorted_city_df['Cumulative Population Proportion'] = sorted_city_df['Population Proportion'].cumsum()
 
         # Store the sorted and updated DataFrame
-        sorted_results[(city, tree_variable)] = sorted_city_df
+        sorted_results[(city, tree_variable_proportions)] = sorted_city_df
 
         # Display the updated DataFrame with cumulative columns for verification
-        print(f"Sorted data for {city} by {tree_variable} with cumulative proportions:")
-        print(sorted_city_df[[cumulative_column, tree_variable, 'Population Proportion', 'Cumulative Population Proportion']])  # Display for verification
+        print(f"Sorted data for {city} by {tree_variable_proportions} with cumulative proportions:")
+        print(sorted_city_df[[cumulative_column, tree_variable_proportions, 'Population Proportion', 'Cumulative Population Proportion']])  # Display for verification
 
         # Calculate the Gini Coefficient
         P = sorted_city_df['Cumulative Population Proportion'].values
@@ -190,7 +214,7 @@ for city in cities:
         gini_index = round(calculate_gini_index(P, E), 3)
 
         # Store the Gini index in the dictionary
-        gini_results[(city, tree_variable)] = gini_index
+        gini_results[(city, tree_variable_proportions)] = gini_index
 
         # Print the Gini index for verification
-        print(f"Gini Index for {city} and {tree_variable}: {gini_index}")
+        print(f"Gini Index for {city} and {tree_variable_proportions}: {gini_index}")
