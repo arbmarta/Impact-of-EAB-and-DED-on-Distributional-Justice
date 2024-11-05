@@ -103,13 +103,13 @@ print(len(df))
 
 ## ------------------------------------------- CREATE PROPORTIONATE COLUMNAFRAME -------------------------------------------
 # Create proportionate column
-tree_variables = ['Tree Count Per Capita', 'Basal Area Sum Per Capita', 'DED Sus Tree Count Per Capita',
-    'DED Sus Basal Area Per Capita', 'DED Tree Count Per Capita', 'DED Basal Area Per Capita',
-    'EAB Tree Count Per Capita', 'EAB Basal Area Per Capita']
+tree_variables = ['Tree Count Per Capita', 'EAB Tree Count Per Capita', 'DED Sus Tree Count Per Capita',
+                  'DED Tree Count Per Capita', 'Basal Area Sum Per Capita', 'EAB Basal Area Per Capita',
+                    'DED Sus Basal Area Per Capita', 'DED Basal Area Per Capita']
 
-tree_variable_proportions = ['Tree Count Proportion', 'Basal Area Sum Proportion', 'DED Sus Tree Count Proportion',
-    'DED Sus Basal Area Proportion', 'DED Tree Count Proportion', 'DED Basal Area Proportion',
-    'EAB Tree Count Proportion', 'EAB Basal Area Proportion']
+tree_variable_proportions = ['Tree Count Proportion', 'EAB Tree Count Proportion', 'DED Sus Tree Count Proportion',
+                                'DED Tree Count Proportion', 'Basal Area Sum Proportion', 'EAB Basal Area Proportion',
+                                'DED Sus Basal Area Proportion', 'DED Basal Area Proportion']
 
 # Calculate proportions for each tree variable
 for variable in tree_variables:
@@ -187,13 +187,13 @@ for city in cities:
     # Get the total population for the current city
     total_city_population = city_population[city]
 
-    for tree_variable_proportions in tree_variable_proportions:
+    for tree_variable_prop in tree_variable_proportions:
         # Sort city_df by the current tree_variable in ascending order
-        sorted_city_df = city_df.sort_values(by=tree_variable_proportions, ascending=True).reset_index(drop=True)
+        sorted_city_df = city_df.sort_values(by=tree_variable_prop, ascending=True).reset_index(drop=True)
 
         # Calculate the cumulative proportion column with a cap at 1
-        cumulative_column = f"{tree_variable_proportions} Cumulative Proportion"
-        sorted_city_df[cumulative_column] = np.minimum(sorted_city_df[tree_variable_proportions].cumsum(), 1)
+        cumulative_column = f"{tree_variable_prop} Cumulative Proportion"
+        sorted_city_df[cumulative_column] = np.minimum(sorted_city_df[tree_variable_prop].cumsum(), 1)
 
         # Calculate the population proportion based on city population
         sorted_city_df['Population Proportion'] = 1 / total_city_population
@@ -202,11 +202,11 @@ for city in cities:
         sorted_city_df['Cumulative Population Proportion'] = sorted_city_df['Population Proportion'].cumsum()
 
         # Store the sorted and updated DataFrame
-        sorted_results[(city, tree_variable_proportions)] = sorted_city_df
+        sorted_results[(city, tree_variable_prop)] = sorted_city_df
 
         # Display the updated DataFrame with cumulative columns for verification
-        print(f"Sorted data for {city} by {tree_variable_proportions} with cumulative proportions:")
-        print(sorted_city_df[[cumulative_column, tree_variable_proportions, 'Population Proportion', 'Cumulative Population Proportion']])  # Display for verification
+        print(f"Sorted data for {city} by {tree_variable_prop} with cumulative proportions:")
+        print(sorted_city_df[[cumulative_column, tree_variable_prop, 'Population Proportion', 'Cumulative Population Proportion']])  # Display for verification
 
         # Calculate the Gini Coefficient
         P = sorted_city_df['Cumulative Population Proportion'].values
@@ -214,7 +214,7 @@ for city in cities:
         gini_index = round(calculate_gini_index(P, E), 3)
 
         # Store the Gini index in the dictionary
-        gini_results[(city, tree_variable_proportions)] = gini_index
+        gini_results[(city, tree_variable_prop)] = gini_index
 
         # Print the Gini index for verification
-        print(f"Gini Index for {city} and {tree_variable_proportions}: {gini_index}")
+        print(f"Gini Index for {city} and {tree_variable_prop}: {gini_index}")
