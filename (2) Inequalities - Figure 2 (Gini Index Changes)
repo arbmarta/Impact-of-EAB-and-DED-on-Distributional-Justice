@@ -1,0 +1,81 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+
+cities = ["Calgary", "Edmonton", "Lethbridge", "Regina", "Winnipeg"]
+
+# Tree Count Data
+tree_count = {
+    'City': ['Calgary', 'Edmonton', 'Lethbridge', 'Regina', 'Winnipeg'],
+    'Current Inequality': [0.4093, 0.4573, 0.3905, 0.2735, 0.3218],
+    'Following Loss of Susceptible Elm': [0.4466, 0.4163, 0.3336, 0.2561, 0.3326],
+    'Following Loss of All Elm': [0.4463, 0.4196, 0.3325, 0.2647, 0.3483],
+    'Following Loss of Ash': [0.4242, 0.4670, 0.3573, 0.3431, 0.3645]
+}
+
+tree_count_df = pd.DataFrame(tree_count)
+
+# Basal Area Data
+basal_area = {
+    'City': ['Calgary', 'Edmonton', 'Lethbridge', 'Regina', 'Winnipeg'],
+    'Current Inequality': [0.6050, 0.7207, 0.6643, 0.4537, 0.4641],
+    'Following Loss of Susceptible Elm': [0.6283, 0.6259, 0.5834, 0.3400, 0.4440],
+    'Following Loss of All Elm': [0.6280, 0.6298, 0.5807, 0.3391, 0.4050],
+    'Following Loss of Ash': [0.6048, 0.7300, 0.6651, 0.5043, 0.5285]
+}
+
+basal_area_df = pd.DataFrame(basal_area)
+
+# Updating the x-axis categories for the plot
+x_labels = ['Post-Ash Loss', 'Existing', 'Post-DED-Susceptible \nElm Loss', 'Post-Elm Loss']
+x_pos = np.arange(len(x_labels))
+
+# Extracting Gini coefficient data for each city and stage
+gini_basal = basal_area_df.set_index('City').T
+gini_tree_count = tree_count_df.set_index('City').T
+
+# Plot for Basal Area Gini Coefficients
+fig, ax = plt.subplots(figsize=(8, 6))
+
+# Loop through each city to scatter its Gini coefficients
+for city in cities:
+    sizes = [125, 250, 125, 125]  # 150 for "Existing" (index 1)
+    ax.scatter(x_pos, gini_basal[city], label=city, s=sizes)
+
+# Set labels, title, and ticks
+ax.set_xticks(x_pos)
+ax.set_xticklabels(x_labels)
+ax.set_ylabel('Gini Indices')
+
+# Adjust legend position to be outside the plot
+ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', labelspacing =2.0)
+
+# Display the plot
+plt.tight_layout()
+plt.show()
+
+# Save the plot as a high-resolution image
+fig.savefig('Figure 3.png', dpi=900)
+
+# Plot for Tree Count Gini Coefficients
+fig, ax = plt.subplots(figsize=(8, 6))
+
+# Loop through each city to scatter its Gini coefficients
+for city in cities:
+    sizes = [125, 250, 125, 125]  # 150 for "Existing" (index 1)
+    ax.scatter(x_pos, gini_tree_count[city], label=city, s=sizes)
+
+# Set labels, title, and ticks
+ax.set_xticks(x_pos)
+ax.set_xticklabels(x_labels)
+ax.set_ylabel('Gini Indices')
+
+# Adjust legend position to be outside the plot
+ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', labelspacing =2.0)
+
+# Display the plot
+plt.tight_layout()
+plt.show()
+
+# Save the plot as a high-resolution image
+fig.savefig('Figure 2.png', dpi=900)
