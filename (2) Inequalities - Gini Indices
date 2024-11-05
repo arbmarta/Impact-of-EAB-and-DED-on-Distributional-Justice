@@ -94,7 +94,7 @@ print(expanded_df.columns)
 
 # Merge with tree columns
 tree_columns_df = pd.read_csv('Gini Index Working Document (DO NOT DELETE).csv', low_memory=False)
-df = expanded_df.merge(tree_columns_df, on='CTUID', how='outer')
+df = expanded_df.merge(tree_columns_df, on='CTUID', how='left')
 df = df.rename(columns={'City_x': 'City', 'Population_x': 'Population'})
 
 print(df)
