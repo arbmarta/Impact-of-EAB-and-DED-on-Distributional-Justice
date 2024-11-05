@@ -1,0 +1,89 @@
+import pandas as pd
+from scipy.stats import spearmanr
+
+df = pd.read_csv(r'C:\Users\alexj\Documents\MSc Research\MSc Manuscripts\Drivers of Inequality\Python Scripts and Datasets\(3) Dissemination Area Inequities Data.csv', low_memory=False)
+
+# Specify columns of interest and reduce
+columns = ['DAUID', 'City', 'Population Density (km)', 'Land Area (km)', 'Income', 'Tree Density', 'Basal Area',
+        'DED Sus Tree Density', 'DED Sus Basal Area', 'DED Tree Density', 'DED Basal Area', 'EAB Tree Density',
+        'EAB Basal Area', 'Ash Proportion', 'Ash Basal Area', 'Ash Basal Area Proportion', 'Elm Proportion',
+        'Elm Basal Area', 'Elm Basal Area Proportion', 'Susceptible Elm Proportion', 'Susceptible Elm Basal Area',
+        'Susceptible Elm Basal Area Proportion', 'Residential instability Scores', 'Economic dependency Scores',
+         'Ethno-cultural composition Scores','Situational vulnerability Scores']
+
+df = df[columns]
+
+# Specify cities, independent, and dependent variables
+cities = 'Winnipeg', 'Regina', 'Calgary', 'Edmonton', 'Lethbridge'
+independent = ['Population Density (km)', 'Income', 'Residential instability Scores', 'Economic dependency Scores',
+         'Ethno-cultural composition Scores','Situational vulnerability Scores']
+
+dependent = ['Tree Density', 'Basal Area', 'DED Sus Tree Density', 'DED Sus Basal Area', 'DED Tree Density',
+             'DED Basal Area', 'EAB Tree Density', 'EAB Basal Area', 'Ash Proportion', 'Ash Basal Area',
+             'Ash Basal Area Proportion', 'Elm Proportion', 'Elm Basal Area', 'Elm Basal Area Proportion',
+             'Susceptible Elm Proportion', 'Susceptible Elm Basal Area', 'Susceptible Elm Basal Area Proportion']
+
+# Initialize empty lists to store results and N counts
+results_list = []
+n_count_list = []
+
+# Function to add asterisks based on p-value
+def format_with_asterisks(rho, p_value):
+    if pd.isnull(rho) or pd.isnull(p_value):
+        return None
+    if p_value < 0.001:
+        return f'{rho:.3f}***'
+    elif p_value < 0.01:
+        return f'{rho:.3f}**'
+    elif p_value < 0.05:
+        return f'{rho:.3f}*'
+    else:
+        return f'{rho:.3f}'
+
+# Loop through each city
+for city in cities:
+    # Filter the dataframe for the current city
+    city_data = df[df['City'] == city]
+
+    # Loop through dependent columns and calculate Spearman's Rho for each independent variable
+    for dep_col in dependent:
+        # Initialize row dictionaries for results and N counts
+        row = {"City": city, "Dependent Variable": dep_col}
+        n_row = {"City": city, "Dependent Variable": dep_col}
+
+        for ind_col in independent:
+            # Drop NaN values from both columns before calculating the correlation
+            non_na_data = city_data[[ind_col, dep_col]].dropna()
+            N = len(non_na_data)  # Count non-NaN pairs
+
+            if N > 1:  # Only calculate if there are more than 1 valid data point
+                # Calculate Spearman's Rho
+                rho, p_value = spearmanr(non_na_data[ind_col], non_na_data[dep_col])
+
+                # Add correlation to the results row
+                row[ind_col] = format_with_asterisks(rho, p_value)
+
+                # Add N count to the N count row
+                n_row[ind_col] = N
+            else:
+                # Fill with None if there are not enough data points
+                row[ind_col] = None
+                n_row[ind_col] = None
+
+        # Append the row for the current dependent variable to both lists
+        results_list.append(row)
+        n_count_list.append(n_row)
+
+# Convert the lists of results and N counts into DataFrames
+results_df = pd.DataFrame(results_list)
+n_count_df = pd.DataFrame(n_count_list)
+
+# Save the DataFrames to CSV files (or Excel if needed)
+results_df.to_csv(f'C:\\Users\\alexj\\Documents\\MSc Research\\MSc Manuscripts\\Drivers of Inequality\\Distributional Inequities Results\\Correlations\\Spearman Rho Correlation Results.csv', index=False)
+n_count_df.to_csv(f'C:\\Users\\alexj\\Documents\\MSc Research\\MSc Manuscripts\\Drivers of Inequality\\Distributional Inequities Results\\Correlations\\N Count Results.csv', index=False)
+
+# Display the DataFrames
+print("Spearman's Rho Correlations:")
+print(results_df)
+print("\nN Counts:")
+print(n_count_df)
